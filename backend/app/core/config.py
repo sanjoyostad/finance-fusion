@@ -1,9 +1,9 @@
 import os
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings 
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Finance Fusion"
-    # Using SQLite for simplicity in local dev, easy to switch to Postgres later
+    # Using SQLite for simplicity in local dev
     DATABASE_URL: str = "sqlite:///./finance.db"
     API_V1_STR: str = "/api/v1"
 

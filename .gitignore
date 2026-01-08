@@ -1,0 +1,39 @@
+# --- General ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Backend (Python) ---
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.env
+backend/.env.*
+backend/.pytest_cache/
+backend/alembic.ini
+
+# Specific Database exclusions
+*.db
+*.sqlite3
+backend/finance.db
+
+# --- Frontend (Node/React) ---
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# Testing
+frontend/coverage/
