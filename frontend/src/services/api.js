@@ -1,9 +1,8 @@
 import axios from 'axios';
 
-// 1. Point to your Python Backend
+// This points to your running Python server
 const API_URL = 'http://127.0.0.1:8000/transactions';
 
-// 2. Fetch all transactions
 export const getTransactions = async () => {
   try {
     const response = await axios.get(API_URL);
@@ -14,7 +13,6 @@ export const getTransactions = async () => {
   }
 };
 
-// 3. Save a new transaction
 export const createTransaction = async (transactionData) => {
   try {
     const response = await axios.post(API_URL, transactionData);

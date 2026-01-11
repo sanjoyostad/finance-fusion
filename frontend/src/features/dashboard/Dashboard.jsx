@@ -1,84 +1,153 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import GlassCard from '../../components/ui/GlassCard';
 import { Plus, Wallet } from 'lucide-react';
-import AddTransactionModal from '../rapid-log/AddTransactionModal'; // <--- IMPORT THIS
+import AddTransactionModal from '../rapid-log/AddTransactionModal';
+import { getTransactions, createTransaction } from '../../services/api'; // <--- Import API
 
 const Dashboard = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false); // <--- STATE
-  
-  // Mock Data
-  const spendingData = [
-    { name: 'Food', value: 4500 },
-    { name: 'Travel', value: 2000 },
-    { name: 'Bills', value: 3000 },
-    { name: 'Misc', value: 1200 },
-  ];
-  const COLORS = ['#C9B59C', '#D9CFC7', '#EFE9E3', '#A89F91'];
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [transactions, setTransactions] = useState([]); // <--- Store Real Data
+  const [totalSpent, setTotalSpent] = useState(0);
 
-  // Handle the "Log Expense" click
-  const handleAddTransaction = (transactionData) => {
-    console.log("Saving to Backend:", transactionData);
-    // TODO: In the next step, we will connect this to the FastAPI backend
+  // 1. Load Data when app starts
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    const data = await getTransactions();
+    setTransactions(data);
+    
+    // Calculate Total
+    const total = data.reduce((sum, item) => sum + item.amount, 0);
+    setTotalSpent(total);
   };
+
+  // 2. Save Data when you click "Log Expense"
+  const handleAddTransaction = async (transactionData) => {
+    try {
+      await createTransaction(transactionData); // Send to Python
+      await fetchData(); // Refresh list immediately
+      setIsModalOpen(false);
+    } catch (error) {
+      alert("Failed to save. Is the backend running?");
+    }
+  };
+
+  // Prepare Chart Data
+  const chartData = transactions.reduce((acc, curr) => {
+    const existing = acc.find(item => item.name === curr.category);
+    if (existing) {
+      existing.value += curr.amount;
+    } else {
+      acc.push({ name: curr.category, value: curr.amount });
+    }
+    return acc;
+  }, []);
+  
+  const COLORS = ['#C9B59C', '#D9CFC7', '#EFE9E3', '#A89F91'];
 
   return (
     <div className="min-h-screen bg-canvas text-ink font-sans p-4 md:p-8">
       
-      {/* --- Header Code (Same as before) --- */}
+      {/* Header */}
       <header className="flex justify-between items-center mb-10">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight text-ink">Financial Health</h1>
-          <p className="text-accent font-medium mt-1">October 2025</p>
+          <p className="text-accent font-medium mt-1">Overview</p>
         </div>
-        <button className="h-12 w-12 bg-surface rounded-full border border-muted flex items-center justify-center hover:bg-white transition-colors">
+        <div className="h-12 w-12 bg-surface rounded-full border border-muted flex items-center justify-center">
            <div className="h-8 w-8 bg-accent/30 rounded-full"></div>
-        </button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* Safe To Spend (Same as before) */}
+            {/* Total Spent Card */}
             <GlassCard className="bg-white">
               <div className="flex justify-between items-start mb-4">
                 <div className="p-2 bg-surface rounded-xl">
                   <Wallet className="w-6 h-6 text-accent" />
                 </div>
-                <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">+4% vs last mo</span>
               </div>
-              <h3 className="text-sm uppercase tracking-wider text-gray-400 mb-1">Safe to Spend</h3>
-              <div className="text-4xl font-light tracking-tight">₹12,400</div>
-              <div className="mt-6">
-                 <div className="h-2 w-full bg-surface rounded-full overflow-hidden">
-                  <div className="h-full bg-accent w-[46%] rounded-full"></div>
-                </div>
-              </div>
+              <h3 className="text-sm uppercase tracking-wider text-gray-400 mb-1">Total Spent</h3>
+              <div className="text-4xl font-light tracking-tight">₹{totalSpent.toLocaleString()}</div>
             </GlassCard>
 
-            {/* Rapid Log Action - UPDATED ONCLICK */}
+            {/* Rapid Log Button */}
             <GlassCard 
-              onClick={() => setIsModalOpen(true)} // <--- TRIGGERS MODAL
+              onClick={() => setIsModalOpen(true)}
               className="bg-surface border-muted flex flex-col justify-center items-center cursor-pointer group hover:scale-[1.02] transition-transform"
             >
                <div className="h-14 w-14 bg-accent rounded-full flex items-center justify-center text-white shadow-lg mb-3 group-hover:bg-ink transition-colors">
                  <Plus className="w-8 h-8" />
                </div>
                <span className="font-medium text-lg text-ink">Rapid Log Cash</span>
-               <p className="text-xs text-gray-500 mt-1">Add expense in 3 clicks</p>
             </GlassCard>
           </div>
-          
-          {/* --- Recent Activity List (Same as before) --- */}
-          {/* ... */}
+
+          {/* Recent Activity List */}
+          <GlassCard>
+            <h3 className="text-lg font-medium mb-4">Recent Activity</h3>
+            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
+              {transactions.length === 0 ? (
+                <p className="text-gray-400 text-sm">No transactions yet.</p>
+              ) : (
+                transactions.slice().reverse().map((t) => (
+                  <div key={t.id} className="flex justify-between items-center py-2 border-b border-muted/30 last:border-0">
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 bg-surface rounded-full flex items-center justify-center text-lg">
+                        {t.category === 'Food' ? '🍔' : t.category === 'Travel' ? '🚕' : '🛍️'}
+                      </div>
+                      <div>
+                        <p className="font-medium capitalize">{t.description}</p>
+                        <p className="text-xs text-gray-400">{new Date(t.date).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <span className="font-medium text-ink">- ₹{t.amount}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </GlassCard>
         </div>
 
-        {/* --- Right Column (Same as before) --- */}
-        {/* ... */}
+        {/* Analytics Chart */}
+        <div className="space-y-6">
+          <GlassCard className="h-full flex flex-col min-h-[400px]">
+            <h3 className="text-lg font-medium mb-6">Spending Breakdown</h3>
+            <div className="flex-1 relative">
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie 
+                      data={chartData} 
+                      innerRadius={60} 
+                      outerRadius={80} 
+                      paddingAngle={5} 
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-400">
+                  Add expenses to see chart
+                </div>
+              )}
+            </div>
+          </GlassCard>
+        </div>
       </div>
 
-      {/* RENDER MODAL */}
       <AddTransactionModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
