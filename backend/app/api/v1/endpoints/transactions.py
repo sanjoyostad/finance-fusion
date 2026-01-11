@@ -4,19 +4,74 @@ from typing import List
 from app.database import get_db
 from app.models import transaction as models
 from app.schemas import transaction as schemas
+from app.api.v1.endpoints.auth import get_current_user
+from app.models.user import User
 
-# This is the line your error is looking for!
 router = APIRouter()
 
+# --- CREATE ---
 @router.post("/", response_model=schemas.Transaction)
-def create_transaction(transaction: schemas.TransactionCreate, db: Session = Depends(get_db)):
-    db_transaction = models.Transaction(**transaction.dict())
+def create_transaction(
+    transaction: schemas.TransactionCreate, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Determine user_id: use logged in user
+    db_transaction = models.Transaction(**transaction.dict(), user_id=current_user.id)
     db.add(db_transaction)
     db.commit()
     db.refresh(db_transaction)
     return db_transaction
 
+# --- READ ---
 @router.get("/", response_model=List[schemas.Transaction])
-def read_transactions(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    transactions = db.query(models.Transaction).offset(skip).limit(limit).all()
-    return transactions
+def read_transactions(
+    skip: int = 0, 
+    limit: int = 1000, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Only show transactions for THIS user
+    return db.query(models.Transaction).filter(models.Transaction.user_id == current_user.id).all()
+
+# --- UPDATE (New) ---
+@router.put("/{transaction_id}", response_model=schemas.Transaction)
+def update_transaction(
+    transaction_id: int,
+    transaction_update: schemas.TransactionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_transaction = db.query(models.Transaction).filter(
+        models.Transaction.id == transaction_id,
+        models.Transaction.user_id == current_user.id
+    ).first()
+    
+    if not db_transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+        
+    for key, value in transaction_update.dict().items():
+        setattr(db_transaction, key, value)
+        
+    db.commit()
+    db.refresh(db_transaction)
+    return db_transaction
+
+# --- DELETE (New) ---
+@router.delete("/{transaction_id}")
+def delete_transaction(
+    transaction_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_transaction = db.query(models.Transaction).filter(
+        models.Transaction.id == transaction_id,
+        models.Transaction.user_id == current_user.id
+    ).first()
+    
+    if not db_transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+        
+    db.delete(db_transaction)
+    db.commit()
+    return {"message": "Transaction deleted"}
